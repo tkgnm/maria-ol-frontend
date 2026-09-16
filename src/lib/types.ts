@@ -33,6 +33,21 @@ export interface Dimension {
 	depth: number | null;
 }
 
+export interface Tag {
+	id: number;
+	documentId: string;
+	name: string;
+	slug: string;
+}
+
+export interface ArtworkGroup {
+	id: number;
+	documentId: string;
+	title: string;
+	description: string | null;
+	sortOrder: number | null;
+}
+
 export interface Artwork {
 	id: number;
 	documentId: string;
@@ -41,12 +56,55 @@ export interface Artwork {
 	location: string | null;
 	date: string | null;
 	medium: string | null;
+	price: number | null;
+	currency: string | null;
+	quantity: number | null;
+	sold: boolean;
+	weightKg: number | null;
+	sortOrder: number | null;
 	createdAt: string;
 	updatedAt: string;
 	publishedAt: string;
 	coverImage: StrapiMedia | null;
 	images: StrapiMedia[];
 	dimensions: Dimension[];
+	tags: Tag[];
+	groups: ArtworkGroup[];
+}
+
+export type EventCategory = 'exhibition' | 'residency' | 'course';
+
+export interface Event {
+	id: number;
+	documentId: string;
+	title: string;
+	category: EventCategory;
+	venue: string | null;
+	location: string | null;
+	startDate: string | null;
+	endDate: string | null;
+	description: string | null;
+}
+
+export interface Award {
+	id: number;
+	documentId: string;
+	title: string;
+	organization: string | null;
+	location: string | null;
+	date: string | null;
+	description: string | null;
+}
+
+export interface Bio {
+	id: number;
+	documentId: string;
+	name: string | null;
+	statement: string | null;
+	portrait: StrapiMedia | null;
+	email: string | null;
+	availabilityNote: string | null;
+	studioLocation: string | null;
 }
 
 export interface StrapiCollectionResponse<T> {
@@ -59,4 +117,9 @@ export interface StrapiCollectionResponse<T> {
 			total: number;
 		};
 	};
+}
+
+export interface StrapiSingleResponse<T> {
+	data: T | null;
+	meta: Record<string, never>;
 }

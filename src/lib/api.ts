@@ -1,5 +1,14 @@
 import { API_KEY } from '$env/static/private';
-import type { Artwork, StrapiCollectionResponse } from '$lib/types';
+import type {
+	Artwork,
+	ArtworkGroup,
+	Award,
+	Bio,
+	Event,
+	StrapiCollectionResponse,
+	StrapiSingleResponse,
+	Tag
+} from '$lib/types';
 import { BACKEND_URL } from '$lib/media';
 
 /** HTTP status codes worth retrying (rate limit + gateway/cold-start errors). */
@@ -90,5 +99,70 @@ export async function getArtworks(fetchFn: typeof fetch): Promise<Artwork[]> {
 	}
 
 	const json = (await res.json()) as StrapiCollectionResponse<Artwork>;
+	return json.data;
+}
+
+function authedFetch(fetchFn: typeof fetch, path: string, params?: Record<string, string>) {
+	const url = new URL(path, BACKEND_URL);
+	for (const [key, value] of Object.entries(params ?? {})) {
+		url.searchParams.set(key, value);
+	}
+	return fetchWithRetry(fetchFn, url, {
+		headers: {
+			Authorization: `Bearer ${API_KEY}`
+		}
+	});
+}
+
+/** Fetch all events (exhibitions, residencies, courses), oldest first. */
+export async function getEvents(fetchFn: typeof fetch): Promise<Event[]> {
+	const res = await authedFetch(fetchFn, '/api/events', {
+		sort: 'startDate:asc',
+		'pagination[pageSize]': '100'
+	});
+	if (!res.ok) throw new Error(`Failed to fetch events: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiCollectionResponse<Event>;
+	return json.data;
+}
+
+/** Fetch all awards, oldest first. */
+export async function getAwards(fetchFn: typeof fetch): Promise<Award[]> {
+	const res = await authedFetch(fetchFn, '/api/awards', {
+		sort: 'date:asc',
+		'pagination[pageSize]': '100'
+	});
+	if (!res.ok) throw new Error(`Failed to fetch awards: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiCollectionResponse<Award>;
+	return json.data;
+}
+
+/** Fetch the single bio entry. Returns null if it hasn't been created yet. */
+export async function getBio(fetchFn: typeof fetch): Promise<Bio | null> {
+	const res = await authedFetch(fetchFn, '/api/bio', { populate: '*' });
+	if (res.status === 404) return null;
+	if (!res.ok) throw new Error(`Failed to fetch bio: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiSingleResponse<Bio>;
+	return json.data;
+}
+
+/** Fetch all artwork groups, in manual sort order. */
+export async function getArtworkGroups(fetchFn: typeof fetch): Promise<ArtworkGroup[]> {
+	const res = await authedFetch(fetchFn, '/api/artwork-groups', {
+		sort: 'sortOrder:asc',
+		'pagination[pageSize]': '100'
+	});
+	if (!res.ok) throw new Error(`Failed to fetch artwork groups: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiCollectionResponse<ArtworkGroup>;
+	return json.data;
+}
+
+/** Fetch all tags. */
+export async function getTags(fetchFn: typeof fetch): Promise<Tag[]> {
+	const res = await authedFetch(fetchFn, '/api/tags', {
+		sort: 'name:asc',
+		'pagination[pageSize]': '100'
+	});
+	if (!res.ok) throw new Error(`Failed to fetch tags: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiCollectionResponse<Tag>;
 	return json.data;
 }
