@@ -219,10 +219,9 @@
 {/snippet}
 
 {#snippet artworkGrid(artworks: Artwork[], group?: ArtworkGroup)}
-	{@const boostedIds = new Set(group?.boostedArtworks?.map((b) => b.documentId))}
 	<ul class="grid">
 		{#each artworks as artwork (artwork.id)}
-			{@render artworkCard(artwork, boostedIds.has(artwork.documentId))}
+			{@render artworkCard(artwork, artwork.documentId === group?.boostedArtwork?.documentId)}
 		{/each}
 	</ul>
 {/snippet}

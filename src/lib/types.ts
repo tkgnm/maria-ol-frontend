@@ -50,8 +50,8 @@ export interface ArtworkGroup {
 	sortOrder: number | null;
 	/** Null for groups saved before the field existed; treat as 'grid'. */
 	displayMode: GroupDisplayMode | null;
-	/** Artworks rendered larger in a grid group. Only `documentId` is populated. */
-	boostedArtworks?: { id: number; documentId: string }[];
+	/** The one artwork rendered larger in a grid group. Only `documentId` is populated. */
+	boostedArtwork?: { id: number; documentId: string } | null;
 }
 
 export interface Artwork {
