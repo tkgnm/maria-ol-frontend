@@ -11,9 +11,11 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"secrets:pull": "node scripts/fetch-env.mjs"
 	},
 	"devDependencies": {
+		"@aws-sdk/client-ssm": "^3.700.0",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-vercel": "^6.3.4",
