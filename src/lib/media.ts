@@ -13,3 +13,15 @@ export function mediaUrl(media: StrapiMedia | null | undefined): string | null {
 	if (!media) return null;
 	return resolveMediaUrl(media.formats?.medium?.url ?? media.url);
 }
+
+/** Largest available display URL for a media item (absolute), for full-size viewing. */
+export function largeMediaUrl(media: StrapiMedia | null | undefined): string | null {
+	if (!media) return null;
+	return resolveMediaUrl(media.formats?.large?.url ?? media.url);
+}
+
+/** Small display URL for a media item (absolute), for thumbnails. */
+export function thumbMediaUrl(media: StrapiMedia | null | undefined): string | null {
+	if (!media) return null;
+	return resolveMediaUrl(media.formats?.thumbnail?.url ?? media.url);
+}

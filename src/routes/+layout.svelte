@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
 
 	let { children } = $props();
@@ -19,7 +20,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<nav>
+<nav class:overlay={page.data.hero != null}>
 	<a class="brand" href={resolve('/')}>Maria Ol</a>
 	<ul>
 		{#each links as link (link.href)}
@@ -63,6 +64,20 @@
 		color: inherit;
 		text-decoration: none;
 		opacity: 0.7;
+	}
+
+	nav.overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 10;
+		max-width: none;
+		margin: 0;
+		padding: 1.5rem 2rem 3rem;
+		color: #fff;
+		background: linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent);
+		text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
 	}
 
 	nav a:hover {

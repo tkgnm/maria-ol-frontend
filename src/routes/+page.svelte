@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { mediaUrl } from '$lib/media';
-	import type { Artwork } from '$lib/types';
+	import Lightbox from '$lib/components/Lightbox.svelte';
+	import { largeMediaUrl, mediaUrl } from '$lib/media';
+	import type { Artwork, ArtworkGroup } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -64,12 +65,37 @@
 		})
 	);
 
+	// Lightbox.
+	let lightboxArtwork = $state<Artwork | null>(null);
+
+	// Hero banner (decided server-side so the nav styling matches the prerendered HTML).
+	const heroArtwork = $derived(
+		data.hero ? (data.artworks.find((a) => a.id === data.hero!.artworkId) ?? null) : null
+	);
+
+	function mode(group: ArtworkGroup) {
+		// Hero only applies to the group chosen by the server; any other falls back to grid.
+		if (group.displayMode === 'hero')
+			return group.documentId === data.hero?.groupId ? 'hero' : 'grid';
+		return group.displayMode ?? 'grid';
+	}
+
+	function scrollCarousel(e: MouseEvent, direction: 1 | -1) {
+		const track = (e.currentTarget as HTMLElement).parentElement?.querySelector('.track');
+		track?.scrollBy({ left: direction * track.clientWidth, behavior: 'smooth' });
+	}
+
 	// Group sections: only used when at least one artwork in the filtered set belongs to a group.
 	const groupedSections = $derived(
 		data.groups
 			.map((g) => ({
 				group: g,
-				artworks: sorted.filter((a) => a.groups.some((ag) => ag.documentId === g.documentId))
+				artworks: sorted.filter(
+					(a) =>
+						a.groups.some((ag) => ag.documentId === g.documentId) &&
+						// The hero artwork is shown in the banner instead of the grid.
+						!(g.documentId === data.hero?.groupId && a.id === data.hero.artworkId)
+				)
 			}))
 			.filter((section) => section.artworks.length > 0)
 	);
@@ -81,6 +107,20 @@
 <svelte:head>
 	<title>Maria OL — Artworks</title>
 </svelte:head>
+
+{#if heroArtwork && data.hero}
+	{@const heroGroup = data.groups.find((g) => g.documentId === data.hero?.groupId)}
+	<button class="hero" type="button" onclick={() => (lightboxArtwork = heroArtwork)}>
+		<img
+			src={largeMediaUrl(heroArtwork.coverImage)}
+			alt={heroArtwork.coverImage?.alternativeText ?? heroArtwork.title}
+		/>
+		<span class="hero-caption">
+			<span class="hero-title">{heroGroup?.title ?? heroArtwork.title}</span>
+			{#if heroGroup?.description}<span class="hero-sub">{heroGroup.description}</span>{/if}
+		</span>
+	</button>
+{/if}
 
 <main>
 	<h1>Artworks</h1>
@@ -141,7 +181,11 @@
 					{#if section.group.description}<p class="group-description">
 							{section.group.description}
 						</p>{/if}
-					{@render artworkGrid(section.artworks)}
+					{#if mode(section.group) === 'immersive'}
+						{@render immersive(section.artworks)}
+					{:else}
+						{@render artworkGrid(section.artworks, section.group)}
+					{/if}
 				</section>
 			{/each}
 			{#if ungrouped.length > 0}
@@ -156,49 +200,66 @@
 	{/if}
 </main>
 
-{#snippet artworkCard(artwork: Artwork)}
+{#snippet artworkCard(artwork: Artwork, boosted: boolean)}
 	{@const cover = mediaUrl(artwork.coverImage)}
-	<li class="card">
-		{#if cover}
-			<img src={cover} alt={artwork.coverImage?.alternativeText ?? artwork.title} />
-		{/if}
-		<div class="info">
-			<h3>
+	<li class="card" class:boosted>
+		<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
+			{#if cover}
+				<img
+					src={boosted ? largeMediaUrl(artwork.coverImage) : cover}
+					alt={artwork.coverImage?.alternativeText ?? artwork.title}
+				/>
+			{/if}
+			<span class="caption">
 				{artwork.title}
 				{#if artwork.sold}<span class="badge">Sold</span>{/if}
-			</h3>
-			{#if artwork.medium}<p class="medium">{artwork.medium}</p>{/if}
-			{#if artwork.date}<p class="date">{artwork.date}</p>{/if}
-			{#if artwork.location}<p class="location">{artwork.location}</p>{/if}
-			{#if artwork.description}<p class="description">{artwork.description}</p>{/if}
-			{#if artwork.dimensions.length}
-				<ul class="dimensions">
-					{#each artwork.dimensions as dim (dim.id)}
-						<li>{dim.width ?? '?'} × {dim.height ?? '?'}{dim.depth ? ` × ${dim.depth}` : ''} cm</li>
-					{/each}
-				</ul>
-			{/if}
-			{#if artwork.price != null && !artwork.sold}
-				<p class="price">{artwork.price} {artwork.currency ?? 'EUR'}</p>
-			{/if}
-			{#if artwork.tags.length}
-				<ul class="tags">
-					{#each artwork.tags as tag (tag.documentId)}
-						<li>{tag.name}</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
+			</span>
+		</button>
 	</li>
 {/snippet}
 
-{#snippet artworkGrid(artworks: Artwork[])}
+{#snippet artworkGrid(artworks: Artwork[], group?: ArtworkGroup)}
+	{@const boostedIds = new Set(group?.boostedArtworks?.map((b) => b.documentId))}
 	<ul class="grid">
 		{#each artworks as artwork (artwork.id)}
-			{@render artworkCard(artwork)}
+			{@render artworkCard(artwork, boostedIds.has(artwork.documentId))}
 		{/each}
 	</ul>
 {/snippet}
+
+{#snippet immersive(artworks: Artwork[])}
+	<div class="immersive">
+		<ul class="track">
+			{#each artworks as artwork (artwork.id)}
+				<li>
+					<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
+						<img
+							src={largeMediaUrl(artwork.coverImage)}
+							alt={artwork.coverImage?.alternativeText ?? artwork.title}
+						/>
+					</button>
+				</li>
+			{/each}
+		</ul>
+		{#if artworks.length > 1}
+			<button
+				type="button"
+				class="nav prev"
+				aria-label="Previous"
+				onclick={(e) => scrollCarousel(e, -1)}>‹</button
+			>
+			<button type="button" class="nav next" aria-label="Next" onclick={(e) => scrollCarousel(e, 1)}
+				>›</button
+			>
+		{/if}
+	</div>
+{/snippet}
+
+<Lightbox
+	artwork={lightboxArtwork}
+	email={data.contactEmail}
+	onclose={() => (lightboxArtwork = null)}
+/>
 
 <style>
 	main {
@@ -254,23 +315,46 @@
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		grid-auto-flow: dense;
 		gap: 2rem;
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
 
+	.open {
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: zoom-in;
+	}
+
 	.card img {
 		width: 100%;
 		height: auto;
 		display: block;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 
-	.card h3 {
+	.card.boosted {
+		grid-column: span 2;
+		grid-row: span 2;
+	}
+
+	@media (max-width: 560px) {
+		.card.boosted {
+			grid-column: span 1;
+			grid-row: span 1;
+		}
+	}
+
+	.caption {
 		font-size: 1rem;
-		font-weight: 400;
-		margin: 0 0 0.25rem;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -285,47 +369,94 @@
 		padding: 0.1rem 0.4rem;
 	}
 
-	.card p {
-		margin: 0 0 0.25rem;
-		font-size: 0.9rem;
+	/* Immersive: full-bleed, no padding; scroll-snap carousel when there are several. */
+	.immersive {
+		position: relative;
+		width: 100vw;
+		margin-left: calc(50% - 50vw);
 	}
 
-	.medium,
-	.date,
-	.location {
-		opacity: 0.7;
-	}
-
-	.description {
-		margin-top: 0.5rem !important;
-	}
-
-	.dimensions {
-		list-style: none;
-		margin: 0.5rem 0 0;
-		padding: 0;
-		font-size: 0.85rem;
-		opacity: 0.7;
-	}
-
-	.price {
-		margin-top: 0.5rem !important;
-		font-weight: 500;
-	}
-
-	.tags {
-		list-style: none;
+	.track {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
-		margin: 0.6rem 0 0;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		list-style: none;
+		margin: 0;
 		padding: 0;
 	}
 
-	.tags li {
-		font-size: 0.75rem;
-		opacity: 0.7;
-		border: 1px solid currentColor;
-		padding: 0.1rem 0.4rem;
+	.track li {
+		flex: 0 0 100%;
+		scroll-snap-align: start;
+	}
+
+	.track img {
+		width: 100%;
+		height: auto;
+		display: block;
+	}
+
+	.nav {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 2.5rem;
+		line-height: 1;
+		padding: 0.2rem 0.8rem;
+		border: none;
+		background: rgb(0 0 0 / 0.35);
+		color: #fff;
+		cursor: pointer;
+	}
+
+	.prev {
+		left: 0;
+	}
+
+	.next {
+		right: 0;
+	}
+
+	/* Hero: image sits under the (overlaid) nav at the top of the page. */
+	.hero {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 90vh;
+		padding: 0;
+		border: none;
+		background: #000;
+		cursor: zoom-in;
+		overflow: hidden;
+	}
+
+	.hero img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.hero-caption {
+		position: absolute;
+		left: 2rem;
+		bottom: 2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		color: #fff;
+		text-align: left;
+		text-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+	}
+
+	.hero-title {
+		font-size: 1.6rem;
+		font-style: italic;
+	}
+
+	.hero-sub {
+		font-size: 0.9rem;
+		max-width: 60ch;
 	}
 </style>

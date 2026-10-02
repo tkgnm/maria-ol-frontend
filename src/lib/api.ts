@@ -149,6 +149,7 @@ export async function getBio(fetchFn: typeof fetch): Promise<Bio | null> {
 export async function getArtworkGroups(fetchFn: typeof fetch): Promise<ArtworkGroup[]> {
 	const res = await authedFetch(fetchFn, '/api/artwork-groups', {
 		sort: 'sortOrder:asc',
+		'populate[boostedArtworks][fields][0]': 'documentId',
 		'pagination[pageSize]': '100'
 	});
 	if (!res.ok) throw new Error(`Failed to fetch artwork groups: ${res.status} ${res.statusText}`);

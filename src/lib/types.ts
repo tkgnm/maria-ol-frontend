@@ -40,12 +40,18 @@ export interface Tag {
 	slug: string;
 }
 
+export type GroupDisplayMode = 'grid' | 'immersive' | 'hero';
+
 export interface ArtworkGroup {
 	id: number;
 	documentId: string;
 	title: string;
 	description: string | null;
 	sortOrder: number | null;
+	/** Null for groups saved before the field existed; treat as 'grid'. */
+	displayMode: GroupDisplayMode | null;
+	/** Artworks rendered larger in a grid group. Only `documentId` is populated. */
+	boostedArtworks?: { id: number; documentId: string }[];
 }
 
 export interface Artwork {
