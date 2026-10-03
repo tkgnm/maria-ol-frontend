@@ -8,10 +8,6 @@
 	const links = [
 		{ href: resolve('/'), label: 'Artworks' },
 		{ href: resolve('/bio'), label: 'Bio' },
-		{ href: resolve('/upcoming'), label: 'Upcoming' },
-		{ href: resolve('/exhibitions'), label: 'Residencies & Exhibitions' },
-		{ href: resolve('/courses'), label: 'Courses' },
-		{ href: resolve('/awards'), label: 'Awards' },
 		{ href: resolve('/contact'), label: 'Contact' }
 	];
 </script>
