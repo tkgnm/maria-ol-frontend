@@ -22,6 +22,16 @@ export function largeMediaUrl(media: StrapiMedia | null | undefined): string | n
 	return resolveMediaUrl(media.formats?.xlarge?.url ?? media.formats?.large?.url ?? media.url);
 }
 
+/** Intrinsic width/height of the original, for `<img>` attributes that reserve space before load (no layout shift). */
+export function mediaSize(
+	media: StrapiMedia | null | undefined
+): { width: number; height: number } | Record<string, never> {
+	return media?.width && media?.height ? { width: media.width, height: media.height } : {};
+}
+
+/** Longest side of the largest generated size (the backend's top breakpoint). */
+const MAX_VARIANT_SIDE = 1600;
+
 /**
  * `srcset` of every generated size (thumbnail excluded) so the browser can pick the
  * smallest one that looks sharp. Undefined when there's nothing to choose between;
@@ -31,8 +41,12 @@ export function mediaSrcset(media: StrapiMedia | null | undefined): string | und
 	if (!media?.formats) return undefined;
 	const candidates = Object.entries(media.formats)
 		.filter(([name, f]) => name !== 'thumbnail' && f?.url && f.width)
-		.map(([, f]) => f)
-		.sort((a, b) => a.width - b.width);
+		.map(([, f]) => ({ url: f.url, width: f.width }));
+	// Images smaller than the top breakpoint have no variant at their own size: offer the original.
+	if (media.width && Math.max(media.width, media.height ?? 0) <= MAX_VARIANT_SIDE) {
+		candidates.push({ url: media.url, width: media.width });
+	}
+	candidates.sort((a, b) => a.width - b.width);
 	if (candidates.length < 2) return undefined;
 	return candidates.map((f) => `${resolveMediaUrl(f.url)} ${f.width}w`).join(', ');
 }

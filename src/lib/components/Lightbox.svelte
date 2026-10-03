@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { largeMediaUrl, mediaSrcset, thumbMediaUrl } from '$lib/media';
+	import { largeMediaUrl, mediaSize, mediaSrcset, thumbMediaUrl } from '$lib/media';
 	import type { Artwork, StrapiMedia } from '$lib/types';
 
 	let {
@@ -56,6 +56,7 @@
 					<img
 						src={largeMediaUrl(current)}
 						srcset={mediaSrcset(current)}
+						{...mediaSize(current)}
 						sizes="(max-width: 900px) 100vw, 60vw"
 						alt={current.alternativeText ?? artwork.title}
 					/>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatEventDate, formatMonthYear } from '$lib/format';
-	import { mediaSrcset, mediaUrl } from '$lib/media';
+	import { mediaSize, mediaSrcset, mediaUrl } from '$lib/media';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -23,6 +23,7 @@
 					class="portrait"
 					src={portrait}
 					srcset={mediaSrcset(data.bio.portrait)}
+					{...mediaSize(data.bio.portrait)}
 					sizes="(max-width: 700px) 100vw, 320px"
 					alt={data.bio.name ?? 'Portrait'}
 				/>

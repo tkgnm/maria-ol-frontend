@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Lightbox from '$lib/components/Lightbox.svelte';
-	import { largeMediaUrl, mediaSrcset, mediaUrl } from '$lib/media';
+	import { largeMediaUrl, mediaSize, mediaSrcset, mediaUrl } from '$lib/media';
 	import type { Artwork, ArtworkGroup } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -114,6 +114,7 @@
 		<img
 			src={largeMediaUrl(heroArtwork.coverImage)}
 			srcset={mediaSrcset(heroArtwork.coverImage)}
+			{...mediaSize(heroArtwork.coverImage)}
 			sizes="100vw"
 			fetchpriority="high"
 			decoding="async"
@@ -179,16 +180,16 @@
 		{#if sorted.length === 0}
 			<p>No artworks match these filters.</p>
 		{:else if useGroups}
-			{#each groupedSections as section (section.group.documentId)}
+			{#each groupedSections as section, i (section.group.documentId)}
 				<section class="group">
 					<h2>{section.group.title}</h2>
 					{#if section.group.description}<p class="group-description">
 							{section.group.description}
 						</p>{/if}
 					{#if mode(section.group) === 'immersive'}
-						{@render immersive(section.artworks)}
+						{@render immersive(section.artworks, i === 0 && !heroArtwork)}
 					{:else}
-						{@render artworkGrid(section.artworks, section.group)}
+						{@render artworkGrid(section.artworks, section.group, i === 0 && !heroArtwork)}
 					{/if}
 				</section>
 			{/each}
@@ -199,12 +200,12 @@
 				</section>
 			{/if}
 		{:else}
-			{@render artworkGrid(sorted)}
+			{@render artworkGrid(sorted, undefined, !heroArtwork)}
 		{/if}
 	{/if}
 </main>
 
-{#snippet artworkCard(artwork: Artwork, boosted: boolean)}
+{#snippet artworkCard(artwork: Artwork, boosted: boolean, eager: boolean, priority: boolean)}
 	{@const cover = mediaUrl(artwork.coverImage)}
 	<li class="card" class:boosted>
 		<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
@@ -212,8 +213,10 @@
 				<img
 					src={boosted ? largeMediaUrl(artwork.coverImage) : cover}
 					srcset={mediaSrcset(artwork.coverImage)}
+					{...mediaSize(artwork.coverImage)}
 					sizes={boosted ? '(max-width: 560px) 100vw, 560px' : '(max-width: 560px) 100vw, 280px'}
-					loading="lazy"
+					loading={eager ? 'eager' : 'lazy'}
+					fetchpriority={priority ? 'high' : undefined}
 					decoding="async"
 					alt={artwork.coverImage?.alternativeText ?? artwork.title}
 				/>
@@ -226,25 +229,32 @@
 	</li>
 {/snippet}
 
-{#snippet artworkGrid(artworks: Artwork[], group?: ArtworkGroup)}
+{#snippet artworkGrid(artworks: Artwork[], group?: ArtworkGroup, aboveFold = false)}
 	<ul class="grid">
-		{#each artworks as artwork (artwork.id)}
-			{@render artworkCard(artwork, artwork.documentId === group?.boostedArtwork?.documentId)}
+		{#each artworks as artwork, i (artwork.id)}
+			{@render artworkCard(
+				artwork,
+				artwork.documentId === group?.boostedArtwork?.documentId,
+				aboveFold && i < 4,
+				aboveFold && i === 0
+			)}
 		{/each}
 	</ul>
 {/snippet}
 
-{#snippet immersive(artworks: Artwork[])}
+{#snippet immersive(artworks: Artwork[], aboveFold = false)}
 	<div class="immersive">
 		<ul class="track">
-			{#each artworks as artwork (artwork.id)}
+			{#each artworks as artwork, i (artwork.id)}
 				<li>
 					<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
 						<img
 							src={largeMediaUrl(artwork.coverImage)}
 							srcset={mediaSrcset(artwork.coverImage)}
+							{...mediaSize(artwork.coverImage)}
 							sizes="100vw"
-							loading="lazy"
+							loading={aboveFold && i === 0 ? 'eager' : 'lazy'}
+							fetchpriority={aboveFold && i === 0 ? 'high' : undefined}
 							decoding="async"
 							alt={artwork.coverImage?.alternativeText ?? artwork.title}
 						/>
