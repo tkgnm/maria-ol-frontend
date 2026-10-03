@@ -19,6 +19,7 @@ export interface StrapiMedia {
 	mime: string;
 	url: string;
 	formats: {
+		xlarge?: StrapiImageFormat;
 		large?: StrapiImageFormat;
 		medium?: StrapiImageFormat;
 		small?: StrapiImageFormat;

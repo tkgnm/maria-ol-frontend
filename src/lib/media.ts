@@ -19,7 +19,22 @@ export function mediaUrl(media: StrapiMedia | null | undefined): string | null {
 /** Largest available display URL for a media item (absolute), for full-size viewing. */
 export function largeMediaUrl(media: StrapiMedia | null | undefined): string | null {
 	if (!media) return null;
-	return resolveMediaUrl(media.formats?.large?.url ?? media.url);
+	return resolveMediaUrl(media.formats?.xlarge?.url ?? media.formats?.large?.url ?? media.url);
+}
+
+/**
+ * `srcset` of every generated size (thumbnail excluded) so the browser can pick the
+ * smallest one that looks sharp. Undefined when there's nothing to choose between;
+ * pair with a `sizes` attribute describing how wide the image is displayed.
+ */
+export function mediaSrcset(media: StrapiMedia | null | undefined): string | undefined {
+	if (!media?.formats) return undefined;
+	const candidates = Object.entries(media.formats)
+		.filter(([name, f]) => name !== 'thumbnail' && f?.url && f.width)
+		.map(([, f]) => f)
+		.sort((a, b) => a.width - b.width);
+	if (candidates.length < 2) return undefined;
+	return candidates.map((f) => `${resolveMediaUrl(f.url)} ${f.width}w`).join(', ');
 }
 
 /** Small display URL for a media item (absolute), for thumbnails. */

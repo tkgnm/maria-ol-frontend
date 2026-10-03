@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Lightbox from '$lib/components/Lightbox.svelte';
-	import { largeMediaUrl, mediaUrl } from '$lib/media';
+	import { largeMediaUrl, mediaSrcset, mediaUrl } from '$lib/media';
 	import type { Artwork, ArtworkGroup } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -113,6 +113,10 @@
 	<button class="hero" type="button" onclick={() => (lightboxArtwork = heroArtwork)}>
 		<img
 			src={largeMediaUrl(heroArtwork.coverImage)}
+			srcset={mediaSrcset(heroArtwork.coverImage)}
+			sizes="100vw"
+			fetchpriority="high"
+			decoding="async"
 			alt={heroArtwork.coverImage?.alternativeText ?? heroArtwork.title}
 		/>
 		<span class="hero-caption">
@@ -207,6 +211,10 @@
 			{#if cover}
 				<img
 					src={boosted ? largeMediaUrl(artwork.coverImage) : cover}
+					srcset={mediaSrcset(artwork.coverImage)}
+					sizes={boosted ? '(max-width: 560px) 100vw, 560px' : '(max-width: 560px) 100vw, 280px'}
+					loading="lazy"
+					decoding="async"
 					alt={artwork.coverImage?.alternativeText ?? artwork.title}
 				/>
 			{/if}
@@ -234,6 +242,10 @@
 					<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
 						<img
 							src={largeMediaUrl(artwork.coverImage)}
+							srcset={mediaSrcset(artwork.coverImage)}
+							sizes="100vw"
+							loading="lazy"
+							decoding="async"
 							alt={artwork.coverImage?.alternativeText ?? artwork.title}
 						/>
 					</button>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { largeMediaUrl, thumbMediaUrl } from '$lib/media';
+	import { largeMediaUrl, mediaSrcset, thumbMediaUrl } from '$lib/media';
 	import type { Artwork, StrapiMedia } from '$lib/types';
 
 	let {
@@ -53,7 +53,12 @@
 		<div class="body">
 			<div class="media">
 				{#if current}
-					<img src={largeMediaUrl(current)} alt={current.alternativeText ?? artwork.title} />
+					<img
+						src={largeMediaUrl(current)}
+						srcset={mediaSrcset(current)}
+						sizes="(max-width: 900px) 100vw, 60vw"
+						alt={current.alternativeText ?? artwork.title}
+					/>
 				{/if}
 				{#if images.length > 1}
 					<ul class="thumbs">
@@ -65,7 +70,7 @@
 									aria-label="Show image {i + 1}"
 									onclick={() => (activeIndex = i)}
 								>
-									<img src={thumbMediaUrl(img)} alt="" />
+									<img src={thumbMediaUrl(img)} alt="" loading="lazy" />
 								</button>
 							</li>
 						{/each}

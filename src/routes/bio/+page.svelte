@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatEventDate, formatMonthYear } from '$lib/format';
-	import { mediaUrl } from '$lib/media';
+	import { mediaSrcset, mediaUrl } from '$lib/media';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -19,7 +19,13 @@
 	{:else}
 		<div class="layout">
 			{#if portrait}
-				<img class="portrait" src={portrait} alt={data.bio.name ?? 'Portrait'} />
+				<img
+					class="portrait"
+					src={portrait}
+					srcset={mediaSrcset(data.bio.portrait)}
+					sizes="(max-width: 700px) 100vw, 320px"
+					alt={data.bio.name ?? 'Portrait'}
+				/>
 			{/if}
 			{#if data.bio.statement}
 				<div class="statement">
