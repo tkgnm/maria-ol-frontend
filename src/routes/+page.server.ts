@@ -71,6 +71,11 @@ export const load: PageServerLoad = async ({ fetch }) => {
 					{ artwork: find(raw.fourth), large: false }
 				]);
 				break;
+			case 'layout.single': {
+				const artwork = find(raw.artwork);
+				if (artwork) blocks.push({ kind: 'single', key, artwork });
+				break;
+			}
 			case 'layout.carousel': {
 				const list = (raw.artworks ?? []).map(find).filter((a): a is Artwork => a !== null);
 				if (list.length > 0) blocks.push({ kind: 'carousel', key, artworks: list });

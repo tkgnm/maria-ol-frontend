@@ -25,9 +25,33 @@
 		return `(max-width: 560px) 100vw, ${px}px`;
 	}
 
-	function scrollCarousel(e: MouseEvent, direction: 1 | -1) {
-		const track = (e.currentTarget as HTMLElement).parentElement?.querySelector('.track, .strip');
-		track?.scrollBy({ left: direction * track.clientWidth, behavior: 'smooth' });
+	/**
+	 * Advance a scroll-snap strip one slide every few seconds, looping back to the start.
+	 * Pauses while hovered/focused or the tab is hidden; off for reduced-motion users.
+	 */
+	function autoAdvance(node: HTMLElement, intervalMs = 5000) {
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		let paused = false;
+		const pause = () => (paused = true);
+		const resume = () => (paused = false);
+		const events = [
+			['pointerenter', pause],
+			['pointerleave', resume],
+			['focusin', pause],
+			['focusout', resume]
+		] as const;
+		for (const [type, fn] of events) node.addEventListener(type, fn);
+		const id = setInterval(() => {
+			if (paused || document.hidden) return;
+			const atEnd = node.scrollLeft + node.clientWidth >= node.scrollWidth - 1;
+			node.scrollTo({ left: atEnd ? 0 : node.scrollLeft + node.clientWidth, behavior: 'smooth' });
+		}, intervalMs);
+		return {
+			destroy() {
+				clearInterval(id);
+				for (const [type, fn] of events) node.removeEventListener(type, fn);
+			}
+		};
 	}
 </script>
 
@@ -92,6 +116,16 @@
 					aboveFold
 				)}
 			</ul>
+		{:else if block.kind === 'single'}
+			<ul class="block single">
+				{@render artworkCard(
+					block.artwork,
+					'(max-width: 700px) 100vw, 640px',
+					true,
+					aboveFold,
+					aboveFold
+				)}
+			</ul>
 		{:else if block.kind === 'carousel'}
 			<div class="block">
 				{@render carousel(block.artworks, aboveFold)}
@@ -135,35 +169,22 @@
 {/snippet}
 
 {#snippet carousel(artworks: Artwork[], aboveFold = false)}
-	<div class="carousel">
-		<ul class="strip">
-			{#each artworks as artwork, i (artwork.id)}
-				{@render artworkCard(
-					artwork,
-					'(max-width: 560px) 80vw, 480px',
-					true,
-					aboveFold && i < 3,
-					aboveFold && i === 0
-				)}
-			{/each}
-		</ul>
-		{#if artworks.length > 1}
-			<button
-				type="button"
-				class="nav prev"
-				aria-label="Previous"
-				onclick={(e) => scrollCarousel(e, -1)}>‹</button
-			>
-			<button type="button" class="nav next" aria-label="Next" onclick={(e) => scrollCarousel(e, 1)}
-				>›</button
-			>
-		{/if}
-	</div>
+	<ul class="strip" use:autoAdvance>
+		{#each artworks as artwork, i (artwork.id)}
+			{@render artworkCard(
+				artwork,
+				'(max-width: 1100px) 100vw, 1068px',
+				true,
+				aboveFold && i === 0,
+				aboveFold && i === 0
+			)}
+		{/each}
+	</ul>
 {/snippet}
 
 {#snippet immersive(artworks: Artwork[], aboveFold = false)}
 	<div class="immersive">
-		<ul class="track">
+		<ul class="track" use:autoAdvance>
 			{#each artworks as artwork, i (artwork.id)}
 				<li>
 					<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
@@ -181,17 +202,6 @@
 				</li>
 			{/each}
 		</ul>
-		{#if artworks.length > 1}
-			<button
-				type="button"
-				class="nav prev"
-				aria-label="Previous"
-				onclick={(e) => scrollCarousel(e, -1)}>‹</button
-			>
-			<button type="button" class="nav next" aria-label="Next" onclick={(e) => scrollCarousel(e, 1)}
-				>›</button
-			>
-		{/if}
 	</div>
 {/snippet}
 
@@ -285,40 +295,55 @@
 		padding: 0.1rem 0.4rem;
 	}
 
-	/* Carousel: within the content width, several artworks visible, same height, scrolls sideways. */
-	.carousel {
-		position: relative;
+	/* Single: one artwork, centred, not edge to edge. */
+	.single {
+		list-style: none;
+		padding: 0;
+		max-width: 640px;
+		margin-left: auto;
+		margin-right: auto;
 	}
 
+	.single .card img {
+		width: auto;
+		max-width: 100%;
+		max-height: 80vh;
+		margin-inline: auto;
+	}
+
+	/* Carousel: one artwork at a time within the content width; advances automatically. */
 	.strip {
 		display: flex;
-		gap: 2rem;
 		overflow-x: auto;
 		scroll-snap-type: x mandatory;
 		scrollbar-width: none;
 		list-style: none;
-		margin: 0;
 		padding: 0;
 	}
 
+	.strip::-webkit-scrollbar {
+		display: none;
+	}
+
 	.strip .card {
-		flex: none;
+		flex: 0 0 100%;
 		scroll-snap-align: start;
+		text-align: center;
 	}
 
 	.strip .card img {
-		height: 360px;
 		width: auto;
-		max-width: none;
+		max-width: 100%;
+		height: 70vh;
+		object-fit: contain;
+		margin-inline: auto;
 	}
 
-	@media (max-width: 560px) {
-		.strip .card img {
-			height: 260px;
-		}
+	.strip .caption {
+		justify-content: center;
 	}
 
-	/* Immersive: full-bleed, no padding; scroll-snap carousel when there are several. */
+	/* Immersive: full-bleed, one at a time; advances automatically. */
 	.immersive {
 		position: relative;
 		width: 100vw;
@@ -344,27 +369,6 @@
 		width: 100%;
 		height: auto;
 		display: block;
-	}
-
-	.nav {
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 2.5rem;
-		line-height: 1;
-		padding: 0.2rem 0.8rem;
-		border: none;
-		background: rgb(0 0 0 / 0.35);
-		color: #fff;
-		cursor: pointer;
-	}
-
-	.prev {
-		left: 0;
-	}
-
-	.next {
-		right: 0;
 	}
 
 	/* Hero: full-bleed image with a caption over it. */
