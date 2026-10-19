@@ -26,7 +26,7 @@
 	}
 
 	function scrollCarousel(e: MouseEvent, direction: 1 | -1) {
-		const track = (e.currentTarget as HTMLElement).parentElement?.querySelector('.track');
+		const track = (e.currentTarget as HTMLElement).parentElement?.querySelector('.track, .strip');
 		track?.scrollBy({ left: direction * track.clientWidth, behavior: 'smooth' });
 	}
 </script>
@@ -92,6 +92,10 @@
 					aboveFold
 				)}
 			</ul>
+		{:else if block.kind === 'carousel'}
+			<div class="block">
+				{@render carousel(block.artworks, aboveFold)}
+			</div>
 		{:else if block.kind === 'immersive'}
 			<div class="block">
 				{@render immersive(block.artworks, aboveFold)}
@@ -128,6 +132,33 @@
 			</span>
 		</button>
 	</li>
+{/snippet}
+
+{#snippet carousel(artworks: Artwork[], aboveFold = false)}
+	<div class="carousel">
+		<ul class="strip">
+			{#each artworks as artwork, i (artwork.id)}
+				{@render artworkCard(
+					artwork,
+					'(max-width: 560px) 80vw, 480px',
+					true,
+					aboveFold && i < 3,
+					aboveFold && i === 0
+				)}
+			{/each}
+		</ul>
+		{#if artworks.length > 1}
+			<button
+				type="button"
+				class="nav prev"
+				aria-label="Previous"
+				onclick={(e) => scrollCarousel(e, -1)}>‹</button
+			>
+			<button type="button" class="nav next" aria-label="Next" onclick={(e) => scrollCarousel(e, 1)}
+				>›</button
+			>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet immersive(artworks: Artwork[], aboveFold = false)}
@@ -252,6 +283,39 @@
 		opacity: 0.6;
 		border: 1px solid currentColor;
 		padding: 0.1rem 0.4rem;
+	}
+
+	/* Carousel: within the content width, several artworks visible, same height, scrolls sideways. */
+	.carousel {
+		position: relative;
+	}
+
+	.strip {
+		display: flex;
+		gap: 2rem;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.strip .card {
+		flex: none;
+		scroll-snap-align: start;
+	}
+
+	.strip .card img {
+		height: 360px;
+		width: auto;
+		max-width: none;
+	}
+
+	@media (max-width: 560px) {
+		.strip .card img {
+			height: 260px;
+		}
 	}
 
 	/* Immersive: full-bleed, no padding; scroll-snap carousel when there are several. */

@@ -128,7 +128,16 @@ export type RawLayoutBlock =
 			right: ArtworkRef;
 	  }
 	| { __component: 'layout.full-width'; id: number; artwork: ArtworkRef }
-	| { __component: 'layout.immersive'; id: number; artworks: NonNullable<ArtworkRef>[] };
+	| { __component: 'layout.immersive'; id: number; artworks: NonNullable<ArtworkRef>[] }
+	| {
+			__component: 'layout.four-across';
+			id: number;
+			first: ArtworkRef;
+			second: ArtworkRef;
+			third: ArtworkRef;
+			fourth: ArtworkRef;
+	  }
+	| { __component: 'layout.carousel'; id: number; artworks: NonNullable<ArtworkRef>[] };
 
 export interface Homepage {
 	id: number;
@@ -148,7 +157,8 @@ export type LayoutBlock =
 	| { kind: 'heading'; key: string; title: string; description: string | null }
 	| { kind: 'row'; key: string; slots: RowSlot[] }
 	| { kind: 'full-width'; key: string; artwork: Artwork }
-	| { kind: 'immersive'; key: string; artworks: Artwork[] };
+	| { kind: 'immersive'; key: string; artworks: Artwork[] }
+	| { kind: 'carousel'; key: string; artworks: Artwork[] };
 
 export interface StrapiCollectionResponse<T> {
 	data: T[];

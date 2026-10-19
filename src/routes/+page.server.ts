@@ -63,6 +63,19 @@ export const load: PageServerLoad = async ({ fetch }) => {
 				if (artwork) blocks.push({ kind: 'full-width', key, artwork });
 				break;
 			}
+			case 'layout.four-across':
+				pushRow(key, [
+					{ artwork: find(raw.first), large: false },
+					{ artwork: find(raw.second), large: false },
+					{ artwork: find(raw.third), large: false },
+					{ artwork: find(raw.fourth), large: false }
+				]);
+				break;
+			case 'layout.carousel': {
+				const list = (raw.artworks ?? []).map(find).filter((a): a is Artwork => a !== null);
+				if (list.length > 0) blocks.push({ kind: 'carousel', key, artworks: list });
+				break;
+			}
 			case 'layout.immersive': {
 				const list = (raw.artworks ?? []).map(find).filter((a): a is Artwork => a !== null);
 				if (list.length > 0) blocks.push({ kind: 'immersive', key, artworks: list });
