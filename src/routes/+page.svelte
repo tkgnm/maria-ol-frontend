@@ -1,220 +1,121 @@
 <script lang="ts">
 	import Lightbox from '$lib/components/Lightbox.svelte';
 	import { largeMediaUrl, mediaSize, mediaSrcset, mediaUrl } from '$lib/media';
-	import type { Artwork, ArtworkGroup } from '$lib/types';
+	import type { Artwork, RowSlot } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	type SizeBucket = 'Small' | 'Medium' | 'Large';
-
-	function sizeBucket(artwork: Artwork): SizeBucket | null {
-		const dim = artwork.dimensions[0];
-		if (!dim || (dim.width == null && dim.height == null)) return null;
-		const maxSide = Math.max(dim.width ?? 0, dim.height ?? 0);
-		if (maxSide <= 40) return 'Small';
-		if (maxSide <= 100) return 'Medium';
-		return 'Large';
-	}
-
-	function year(artwork: Artwork): string | null {
-		return artwork.date ? artwork.date.slice(0, 4) : null;
-	}
-
-	// Filter option lists, derived from the loaded artworks.
-	const years = $derived(
-		[...new Set(data.artworks.map(year).filter((y): y is string => y !== null))].sort().reverse()
-	);
-	const sizes: SizeBucket[] = ['Small', 'Medium', 'Large'];
-	const tags = $derived(
-		[...new Map(data.artworks.flatMap((a) => a.tags).map((t) => [t.documentId, t])).values()].sort(
-			(a, b) => a.name.localeCompare(b.name)
-		)
-	);
-	const hasPrices = $derived(data.artworks.some((a) => a.price != null));
-
-	// Filter + sort state.
-	let selectedYear = $state('all');
-	let selectedSize = $state('all');
-	let selectedTag = $state('all');
-	let sortBy = $state<'default' | 'year-desc' | 'year-asc' | 'price-asc' | 'price-desc'>('default');
-
-	const filtered = $derived(
-		data.artworks.filter((a) => {
-			if (selectedYear !== 'all' && year(a) !== selectedYear) return false;
-			if (selectedSize !== 'all' && sizeBucket(a) !== selectedSize) return false;
-			if (selectedTag !== 'all' && !a.tags.some((t) => t.documentId === selectedTag)) return false;
-			return true;
-		})
-	);
-
-	const sorted = $derived(
-		[...filtered].sort((a, b) => {
-			switch (sortBy) {
-				case 'year-desc':
-					return (year(b) ?? '').localeCompare(year(a) ?? '');
-				case 'year-asc':
-					return (year(a) ?? '').localeCompare(year(b) ?? '');
-				case 'price-asc':
-					return (a.price ?? Infinity) - (b.price ?? Infinity);
-				case 'price-desc':
-					return (b.price ?? -Infinity) - (a.price ?? -Infinity);
-				default:
-					return 0; // already in homepage sortOrder from the server load
-			}
-		})
-	);
-
-	// Lightbox.
 	let lightboxArtwork = $state<Artwork | null>(null);
 
-	// Hero banner (decided server-side so the nav styling matches the prerendered HTML).
-	const heroArtwork = $derived(
-		data.hero ? (data.artworks.find((a) => a.id === data.hero!.artworkId) ?? null) : null
-	);
+	/** Max width of the content column, minus side padding, in px. */
+	const CONTENT_WIDTH = 1068;
+	const ROW_GAP = 32;
 
-	function mode(group: ArtworkGroup) {
-		// Hero only applies to the group chosen by the server; any other falls back to grid.
-		if (group.displayMode === 'hero')
-			return group.documentId === data.hero?.groupId ? 'hero' : 'grid';
-		return group.displayMode ?? 'grid';
+	/** CSS grid columns for a row: the large slot gets twice the width. */
+	function columns(slots: RowSlot[]): string {
+		return slots.map((s) => (s.large ? '2fr' : '1fr')).join(' ');
+	}
+
+	/** `sizes` attribute for one slot, so the browser picks the right image from the srcset. */
+	function slotSizes(slots: RowSlot[], slot: RowSlot): string {
+		const total = slots.reduce((n, s) => n + (s.large ? 2 : 1), 0);
+		const usable = CONTENT_WIDTH - ROW_GAP * (slots.length - 1);
+		const px = Math.round((usable * (slot.large ? 2 : 1)) / total);
+		return `(max-width: 560px) 100vw, ${px}px`;
 	}
 
 	function scrollCarousel(e: MouseEvent, direction: 1 | -1) {
 		const track = (e.currentTarget as HTMLElement).parentElement?.querySelector('.track');
 		track?.scrollBy({ left: direction * track.clientWidth, behavior: 'smooth' });
 	}
-
-	// Group sections: only used when at least one artwork in the filtered set belongs to a group.
-	const groupedSections = $derived(
-		data.groups
-			.map((g) => ({
-				group: g,
-				artworks: sorted.filter(
-					(a) =>
-						a.groups.some((ag) => ag.documentId === g.documentId) &&
-						// The hero artwork is shown in the banner instead of the grid.
-						!(g.documentId === data.hero?.groupId && a.id === data.hero.artworkId)
-				)
-			}))
-			.filter((section) => section.artworks.length > 0)
-	);
-	const groupedIds = $derived(new Set(groupedSections.flatMap((s) => s.artworks.map((a) => a.id))));
-	const ungrouped = $derived(sorted.filter((a) => !groupedIds.has(a.id)));
-	const useGroups = $derived(groupedSections.length > 0);
 </script>
 
 <svelte:head>
 	<title>Maria OL — Artworks</title>
 </svelte:head>
 
-{#if heroArtwork && data.hero}
-	{@const heroGroup = data.groups.find((g) => g.documentId === data.hero?.groupId)}
-	<button class="hero" type="button" onclick={() => (lightboxArtwork = heroArtwork)}>
-		<img
-			src={largeMediaUrl(heroArtwork.coverImage)}
-			srcset={mediaSrcset(heroArtwork.coverImage)}
-			{...mediaSize(heroArtwork.coverImage)}
-			sizes="100vw"
-			fetchpriority="high"
-			decoding="async"
-			alt={heroArtwork.coverImage?.alternativeText ?? heroArtwork.title}
-		/>
-		<span class="hero-caption">
-			<span class="hero-title">{heroGroup?.title ?? heroArtwork.title}</span>
-			{#if heroGroup?.description}<span class="hero-sub">{heroGroup.description}</span>{/if}
-		</span>
-	</button>
-{/if}
-
 <main>
 	<h1>Artworks</h1>
 
-	{#if data.artworks.length === 0}
+	{#if data.blocks.length === 0}
 		<p>No artworks found.</p>
-	{:else}
-		<div class="controls">
-			<label>
-				Year
-				<select bind:value={selectedYear}>
-					<option value="all">All</option>
-					{#each years as y (y)}
-						<option value={y}>{y}</option>
-					{/each}
-				</select>
-			</label>
-			<label>
-				Size
-				<select bind:value={selectedSize}>
-					<option value="all">All</option>
-					{#each sizes as s (s)}
-						<option value={s}>{s}</option>
-					{/each}
-				</select>
-			</label>
-			{#if tags.length > 0}
-				<label>
-					Tag
-					<select bind:value={selectedTag}>
-						<option value="all">All</option>
-						{#each tags as t (t.documentId)}
-							<option value={t.documentId}>{t.name}</option>
-						{/each}
-					</select>
-				</label>
-			{/if}
-			<label>
-				Sort
-				<select bind:value={sortBy}>
-					<option value="default">Curated order</option>
-					<option value="year-desc">Year (newest first)</option>
-					<option value="year-asc">Year (oldest first)</option>
-					{#if hasPrices}
-						<option value="price-asc">Price (low to high)</option>
-						<option value="price-desc">Price (high to low)</option>
-					{/if}
-				</select>
-			</label>
-		</div>
-
-		{#if sorted.length === 0}
-			<p>No artworks match these filters.</p>
-		{:else if useGroups}
-			{#each groupedSections as section, i (section.group.documentId)}
-				<section class="group">
-					<h2>{section.group.title}</h2>
-					{#if section.group.description}<p class="group-description">
-							{section.group.description}
-						</p>{/if}
-					{#if mode(section.group) === 'immersive'}
-						{@render immersive(section.artworks, i === 0 && !heroArtwork)}
-					{:else}
-						{@render artworkGrid(section.artworks, section.group, i === 0 && !heroArtwork)}
-					{/if}
-				</section>
-			{/each}
-			{#if ungrouped.length > 0}
-				<section class="group">
-					<h2>Other works</h2>
-					{@render artworkGrid(ungrouped)}
-				</section>
-			{/if}
-		{:else}
-			{@render artworkGrid(sorted, undefined, !heroArtwork)}
-		{/if}
 	{/if}
+
+	{#each data.blocks as block, i (block.key)}
+		{@const aboveFold = i === 0}
+		{#if block.kind === 'hero'}
+			<button class="block hero" type="button" onclick={() => (lightboxArtwork = block.artwork)}>
+				<img
+					src={largeMediaUrl(block.artwork.coverImage)}
+					srcset={mediaSrcset(block.artwork.coverImage)}
+					{...mediaSize(block.artwork.coverImage)}
+					sizes="100vw"
+					loading={aboveFold ? 'eager' : 'lazy'}
+					fetchpriority={aboveFold ? 'high' : undefined}
+					decoding="async"
+					alt={block.artwork.coverImage?.alternativeText ?? block.artwork.title}
+				/>
+				<span class="hero-caption">
+					<span class="hero-title">{block.title}</span>
+					{#if block.subtitle}<span class="hero-sub">{block.subtitle}</span>{/if}
+				</span>
+			</button>
+		{:else if block.kind === 'heading'}
+			<header class="block heading">
+				<h2>{block.title}</h2>
+				{#if block.description}<p class="heading-description">{block.description}</p>{/if}
+			</header>
+		{:else if block.kind === 'row'}
+			<ul class="block row" style:grid-template-columns={columns(block.slots)}>
+				{#each block.slots as slot, j (j)}
+					{#if slot.artwork}
+						{@render artworkCard(
+							slot.artwork,
+							slotSizes(block.slots, slot),
+							slot.large,
+							aboveFold,
+							aboveFold && (slot.large || j === 0)
+						)}
+					{:else}
+						<li aria-hidden="true"></li>
+					{/if}
+				{/each}
+			</ul>
+		{:else if block.kind === 'full-width'}
+			<ul class="block row">
+				{@render artworkCard(
+					block.artwork,
+					`(max-width: 1100px) 100vw, ${CONTENT_WIDTH}px`,
+					true,
+					aboveFold,
+					aboveFold
+				)}
+			</ul>
+		{:else if block.kind === 'immersive'}
+			<div class="block">
+				{@render immersive(block.artworks, aboveFold)}
+			</div>
+		{/if}
+	{/each}
 </main>
 
-{#snippet artworkCard(artwork: Artwork, boosted: boolean, eager: boolean, priority: boolean)}
+{#snippet artworkCard(
+	artwork: Artwork,
+	sizes: string,
+	wide: boolean,
+	eager: boolean,
+	priority: boolean
+)}
 	{@const cover = mediaUrl(artwork.coverImage)}
-	<li class="card" class:boosted>
+	<li class="card">
 		<button type="button" class="open" onclick={() => (lightboxArtwork = artwork)}>
 			{#if cover}
 				<img
-					src={boosted ? largeMediaUrl(artwork.coverImage) : cover}
+					src={wide ? largeMediaUrl(artwork.coverImage) : cover}
 					srcset={mediaSrcset(artwork.coverImage)}
 					{...mediaSize(artwork.coverImage)}
-					sizes={boosted ? '(max-width: 560px) 100vw, 560px' : '(max-width: 560px) 100vw, 280px'}
+					{sizes}
 					loading={eager ? 'eager' : 'lazy'}
 					fetchpriority={priority ? 'high' : undefined}
 					decoding="async"
@@ -227,19 +128,6 @@
 			</span>
 		</button>
 	</li>
-{/snippet}
-
-{#snippet artworkGrid(artworks: Artwork[], group?: ArtworkGroup, aboveFold = false)}
-	<ul class="grid">
-		{#each artworks as artwork, i (artwork.id)}
-			{@render artworkCard(
-				artwork,
-				artwork.documentId === group?.boostedArtwork?.documentId,
-				aboveFold && i < 4,
-				aboveFold && i === 0
-			)}
-		{/each}
-	</ul>
 {/snippet}
 
 {#snippet immersive(artworks: Artwork[], aboveFold = false)}
@@ -294,53 +182,41 @@
 		font-style: italic;
 	}
 
-	.controls {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1.5rem;
-		margin: 1.5rem 0 2rem;
-		font-size: 0.85rem;
+	.block {
+		margin: 0 0 3rem;
 	}
 
-	.controls label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		opacity: 0.8;
+	.heading {
+		margin-bottom: 1.5rem;
 	}
 
-	.controls select {
-		font: inherit;
-		font-size: 0.9rem;
-		padding: 0.25rem 0.4rem;
-	}
-
-	.group {
-		margin-bottom: 3rem;
-	}
-
-	.group h2 {
+	.heading h2 {
 		font-weight: 400;
 		font-style: italic;
 		font-size: 1.2rem;
-		margin-bottom: 0.25rem;
+		margin: 0 0 0.25rem;
 	}
 
-	.group-description {
+	.heading-description {
 		opacity: 0.7;
 		font-size: 0.9rem;
-		margin: 0 0 1.5rem;
+		margin: 0;
 		max-width: 60ch;
 	}
 
-	.grid {
+	.row {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		grid-auto-flow: dense;
 		gap: 2rem;
+		align-items: center;
 		list-style: none;
-		margin: 0;
 		padding: 0;
+	}
+
+	@media (max-width: 560px) {
+		/* Rows stack on phones; overrides the inline column template. */
+		.row {
+			grid-template-columns: 1fr !important;
+		}
 	}
 
 	.open {
@@ -360,18 +236,6 @@
 		height: auto;
 		display: block;
 		margin-bottom: 0.5rem;
-	}
-
-	.card.boosted {
-		grid-column: span 2;
-		grid-row: span 2;
-	}
-
-	@media (max-width: 560px) {
-		.card.boosted {
-			grid-column: span 1;
-			grid-row: span 1;
-		}
 	}
 
 	.caption {
@@ -439,11 +303,12 @@
 		right: 0;
 	}
 
-	/* Hero: image sits under the (overlaid) nav at the top of the page. */
+	/* Hero: full-bleed image with a caption over it. */
 	.hero {
 		position: relative;
 		display: block;
-		width: 100%;
+		width: 100vw;
+		margin-left: calc(50% - 50vw);
 		height: 90vh;
 		padding: 0;
 		border: none;

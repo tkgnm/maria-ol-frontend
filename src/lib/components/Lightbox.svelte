@@ -86,14 +86,12 @@
 				{#if artwork.medium}<p class="muted">{artwork.medium}</p>{/if}
 				{#if artwork.date}<p class="muted">{artwork.date}</p>{/if}
 				{#if artwork.location}<p class="muted">{artwork.location}</p>{/if}
-				{#if artwork.dimensions.length}
-					<ul class="plain muted">
-						{#each artwork.dimensions as dim (dim.id)}
-							<li>
-								{dim.width ?? '?'} × {dim.height ?? '?'}{dim.depth ? ` × ${dim.depth}` : ''} cm
-							</li>
-						{/each}
-					</ul>
+				{#if artwork.dimensions}
+					{@const dim = artwork.dimensions}
+					<p class="muted">
+						{dim.width ?? '?'} × {dim.height ?? '?'}{dim.depth ? ` × ${dim.depth}` : ''}
+						{dim.unit ?? 'cm'}
+					</p>
 				{/if}
 				{#if artwork.description}<p class="description">{artwork.description}</p>{/if}
 				{#if artwork.price != null && !artwork.sold}

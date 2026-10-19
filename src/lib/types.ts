@@ -32,6 +32,7 @@ export interface Dimension {
 	width: number | null;
 	height: number | null;
 	depth: number | null;
+	unit: 'cm' | null;
 }
 
 export interface Tag {
@@ -39,20 +40,6 @@ export interface Tag {
 	documentId: string;
 	name: string;
 	slug: string;
-}
-
-export type GroupDisplayMode = 'grid' | 'immersive' | 'hero';
-
-export interface ArtworkGroup {
-	id: number;
-	documentId: string;
-	title: string;
-	description: string | null;
-	sortOrder: number | null;
-	/** Null for groups saved before the field existed; treat as 'grid'. */
-	displayMode: GroupDisplayMode | null;
-	/** The one artwork rendered larger in a grid group. Only `documentId` is populated. */
-	boostedArtwork?: { id: number; documentId: string } | null;
 }
 
 export interface Artwork {
@@ -68,15 +55,13 @@ export interface Artwork {
 	quantity: number | null;
 	sold: boolean;
 	weightKg: number | null;
-	sortOrder: number | null;
 	createdAt: string;
 	updatedAt: string;
 	publishedAt: string;
 	coverImage: StrapiMedia | null;
 	images: StrapiMedia[];
-	dimensions: Dimension[];
+	dimensions: Dimension | null;
 	tags: Tag[];
-	groups: ArtworkGroup[];
 }
 
 export type EventCategory = 'exhibition' | 'residency' | 'course';
@@ -113,6 +98,57 @@ export interface Bio {
 	availabilityNote: string | null;
 	studioLocation: string | null;
 }
+
+/** A related artwork as returned inside a homepage block. Only `documentId` is relied on. */
+export type ArtworkRef = { documentId: string } | null;
+
+/** Homepage layout blocks exactly as Strapi returns them (`layout` dynamic zone). */
+export type RawLayoutBlock =
+	| {
+			__component: 'layout.hero';
+			id: number;
+			artwork: ArtworkRef;
+			title: string | null;
+			subtitle: string | null;
+	  }
+	| { __component: 'layout.heading'; id: number; title: string; description: string | null }
+	| { __component: 'layout.two-across'; id: number; left: ArtworkRef; right: ArtworkRef }
+	| {
+			__component: 'layout.three-across';
+			id: number;
+			left: ArtworkRef;
+			middle: ArtworkRef;
+			right: ArtworkRef;
+	  }
+	| {
+			__component: 'layout.three-middle-large';
+			id: number;
+			left: ArtworkRef;
+			middle: ArtworkRef;
+			right: ArtworkRef;
+	  }
+	| { __component: 'layout.full-width'; id: number; artwork: ArtworkRef }
+	| { __component: 'layout.immersive'; id: number; artworks: NonNullable<ArtworkRef>[] };
+
+export interface Homepage {
+	id: number;
+	documentId: string;
+	layout: RawLayoutBlock[];
+}
+
+/** One position in a row. `artwork` is null when the slot was left empty in Strapi. */
+export interface RowSlot {
+	artwork: Artwork | null;
+	large: boolean;
+}
+
+/** Homepage blocks resolved against the full artwork data, ready to render. */
+export type LayoutBlock =
+	| { kind: 'hero'; key: string; artwork: Artwork; title: string; subtitle: string | null }
+	| { kind: 'heading'; key: string; title: string; description: string | null }
+	| { kind: 'row'; key: string; slots: RowSlot[] }
+	| { kind: 'full-width'; key: string; artwork: Artwork }
+	| { kind: 'immersive'; key: string; artworks: Artwork[] };
 
 export interface StrapiCollectionResponse<T> {
 	data: T[];

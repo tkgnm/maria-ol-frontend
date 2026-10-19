@@ -1,39 +1,91 @@
-import { getArtworkGroups, getArtworks, getBio } from '$lib/api';
+import { getArtworks, getBio, getHomepage } from '$lib/api';
+import type { Artwork, ArtworkRef, LayoutBlock, RowSlot } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch }) => {
-	const [artworks, groups, bio] = await Promise.all([
+	const [artworks, homepage, bio] = await Promise.all([
 		getArtworks(fetch),
-		getArtworkGroups(fetch),
+		getHomepage(fetch),
 		getBio(fetch)
 	]);
 
-	// Manual homepage order: sortOrder first (nulls last), then oldest-first as today.
-	artworks.sort((a, b) => {
-		if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
-		if (a.sortOrder != null) return -1;
-		if (b.sortOrder != null) return 1;
-		return a.createdAt.localeCompare(b.createdAt);
-	});
+	// Blocks only carry artwork references; look up the full (published) artwork for each.
+	// Anything not found (e.g. an unpublished artwork) is treated as an empty slot.
+	const byId = new Map(artworks.map((a) => [a.documentId, a]));
+	const find = (ref: ArtworkRef | undefined): Artwork | null =>
+		(ref && byId.get(ref.documentId)) ?? null;
 
-	// A hero group only takes effect when it is the first group on the page (the first group
-	// that has artworks); otherwise it falls back to a normal grid. Decided here, ignoring the
-	// client-side filters, so the layout can style the nav in the prerendered HTML.
-	const firstGroup = groups.find((g) =>
-		artworks.some((a) => a.groups.some((ag) => ag.documentId === g.documentId))
-	);
-	const heroGroup = firstGroup?.displayMode === 'hero' ? firstGroup : null;
-	const heroArtwork = heroGroup
-		? (artworks.find(
-				(a) => a.coverImage && a.groups.some((ag) => ag.documentId === heroGroup.documentId)
-			) ?? null)
-		: null;
+	const blocks: LayoutBlock[] = [];
+
+	const pushRow = (key: string, slots: RowSlot[]) => {
+		if (slots.some((s) => s.artwork)) blocks.push({ kind: 'row', key, slots });
+	};
+
+	for (const raw of homepage?.layout ?? []) {
+		const key = `${raw.__component}-${raw.id}`;
+		switch (raw.__component) {
+			case 'layout.hero': {
+				const artwork = find(raw.artwork);
+				if (!artwork) break;
+				blocks.push({
+					kind: 'hero',
+					key,
+					artwork,
+					title: raw.title || artwork.title,
+					subtitle: raw.subtitle || null
+				});
+				break;
+			}
+			case 'layout.heading':
+				blocks.push({
+					kind: 'heading',
+					key,
+					title: raw.title,
+					description: raw.description || null
+				});
+				break;
+			case 'layout.two-across':
+				pushRow(key, [
+					{ artwork: find(raw.left), large: false },
+					{ artwork: find(raw.right), large: false }
+				]);
+				break;
+			case 'layout.three-across':
+			case 'layout.three-middle-large':
+				pushRow(key, [
+					{ artwork: find(raw.left), large: false },
+					{ artwork: find(raw.middle), large: raw.__component === 'layout.three-middle-large' },
+					{ artwork: find(raw.right), large: false }
+				]);
+				break;
+			case 'layout.full-width': {
+				const artwork = find(raw.artwork);
+				if (artwork) blocks.push({ kind: 'full-width', key, artwork });
+				break;
+			}
+			case 'layout.immersive': {
+				const list = (raw.artworks ?? []).map(find).filter((a): a is Artwork => a !== null);
+				if (list.length > 0) blocks.push({ kind: 'immersive', key, artworks: list });
+				break;
+			}
+			// Unknown block types (added in Strapi before the frontend supports them) are skipped.
+		}
+	}
+
+	// Safety net: if the homepage hasn't been built or published yet, show every artwork in
+	// rows of three rather than an empty page.
+	if (blocks.length === 0) {
+		for (let i = 0; i < artworks.length; i += 3) {
+			blocks.push({
+				kind: 'row',
+				key: `fallback-${i}`,
+				slots: artworks.slice(i, i + 3).map((artwork) => ({ artwork, large: false }))
+			});
+		}
+	}
 
 	return {
-		artworks,
-		groups,
-		contactEmail: bio?.email ?? null,
-		hero:
-			heroArtwork && heroGroup ? { groupId: heroGroup.documentId, artworkId: heroArtwork.id } : null
+		blocks,
+		contactEmail: bio?.email ?? null
 	};
 };

@@ -1,10 +1,10 @@
 import { API_KEY } from '$env/static/private';
 import type {
 	Artwork,
-	ArtworkGroup,
 	Award,
 	Bio,
 	Event,
+	Homepage,
 	StrapiCollectionResponse,
 	StrapiSingleResponse,
 	Tag
@@ -145,15 +145,17 @@ export async function getBio(fetchFn: typeof fetch): Promise<Bio | null> {
 	return json.data;
 }
 
-/** Fetch all artwork groups, in manual sort order. */
-export async function getArtworkGroups(fetchFn: typeof fetch): Promise<ArtworkGroup[]> {
-	const res = await authedFetch(fetchFn, '/api/artwork-groups', {
-		sort: 'sortOrder:asc',
-		'populate[boostedArtwork][fields][0]': 'documentId',
-		'pagination[pageSize]': '100'
+/**
+ * Fetch the published homepage layout. Returns null if it hasn't been created or published yet.
+ * Related artworks come back one level deep; the page matches them to `getArtworks` by documentId.
+ */
+export async function getHomepage(fetchFn: typeof fetch): Promise<Homepage | null> {
+	const res = await authedFetch(fetchFn, '/api/homepage', {
+		'populate[layout][populate]': '*'
 	});
-	if (!res.ok) throw new Error(`Failed to fetch artwork groups: ${res.status} ${res.statusText}`);
-	const json = (await res.json()) as StrapiCollectionResponse<ArtworkGroup>;
+	if (res.status === 404) return null;
+	if (!res.ok) throw new Error(`Failed to fetch homepage: ${res.status} ${res.statusText}`);
+	const json = (await res.json()) as StrapiSingleResponse<Homepage>;
 	return json.data;
 }
 
